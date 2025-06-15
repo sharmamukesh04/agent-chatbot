@@ -206,7 +206,7 @@ def run_agent_with_realtime_logs(query, log_container):
         return f"Error: {str(e)}"
 
 st.title("🤖 Cashify AI Assistant")
-st.caption("Real LLM Agent with Decision Tracking")
+st.caption("Agent with Decision Tracking")
 
 with st.sidebar:
     st.header("🤖 Agent Decision Steps")
@@ -215,7 +215,6 @@ with st.sidebar:
         st.write(f"Import: {import_strategy}")
         st.write(f"Chatbot: {st.session_state.chatbot is not None}")
     
-    # ADD: Chat History Section
     with st.expander("📜 Chat History (Last 5)"):
         if st.session_state.chatbot:
             try:
@@ -231,11 +230,9 @@ with st.sidebar:
             except Exception as e:
                 st.error(f"History error: {e}")
     
-    # FIX: Keep log container for display
     log_placeholder = st.empty()
     st.session_state.log_container = log_placeholder
     
-    # FIX: Always update logs display
     with log_placeholder.container():
         if st.session_state.agent_logs:
             for log in st.session_state.agent_logs[-15:]:
@@ -282,7 +279,7 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-if prompt := st.chat_input("Ask me anything about Cashify..."):
+if prompt := st.chat_input("Ask me anything ..."):
     if not st.session_state.processing:
         st.session_state.processing = True
         
