@@ -1,15 +1,5 @@
 [
   {
-    "timestamp": "2025-06-15T20:38:11.906323",
-    "user": "what are the top 10 smart phones in internet?",
-    "bot": "I'm sorry, but the real-time search for \"top 10 smartphones\" is temporarily unavailable. Would you like assistance with anything else related to Cashify or gadgets?"
-  },
-  {
-    "timestamp": "2025-06-15T20:41:35.657295",
-    "user": "what are the top 10 smart phones in internet?",
-    "bot": "I'm sorry, but I can't provide real-time search results at the moment. However, I can help you with information about Cashify or gadgets! Let me know how I can assist you."
-  },
-  {
     "timestamp": "2025-06-15T20:44:42.624441",
     "user": "what are the top 10 smart phones in internet?",
     "bot": "Here are the top 10 smartphones available in the market as of now, based on recent trends and expert recommendations:\n\n1. **Apple iPhone 16 Pro Max** - Known for its exceptional camera system and performance.\n2. **Samsung Galaxy S25 Ultra** - A premium Android option with a large display and advanced features.\n3. **Google Pixel 9** - Praised for its camera capabilities and clean software experience.\n4. **Samsung Galaxy Z Fold 6** - A cutting-edge foldable smartphone with a unique design.\n5. **OnePlus 13 Pro** - Offers fast charging and a powerful chipset.\n6. **Apple iPhone 16e** - A more affordable iPhone with great performance for everyday use.\n7. **Xiaomi Redmi Note 13 Pro** - A budget-friendly option with impressive specs.\n8. **Oppo Find X7 Pro** - Known for its sleek design and fast charging capabilities.\n9. **Vivo X90 Pro** - Features a high-quality camera and long battery life.\n10. **Google Pixel 9 Pro** - A premium version of the Pixel series with enhanced features.\n\nThese rankings may vary based on specific needs and preferences, such as budget, camera quality, or display size. Let me know if you'd like more details about any of these models!"
@@ -23,5 +13,15 @@
     "timestamp": "2025-06-15T20:46:17.314355",
     "user": "what are the top 10 smart phones in internet?",
     "bot": "Here’s a list of the **top 10 smartphones** available in the market as of now, based on the latest trends and expert reviews:\n\n1. **Samsung Galaxy S25 Ultra**  \n   - **Price:** $1,419.99  \n   - **Key Features:** Best camera phone, large AMOLED display, S-Pen support, and long battery life.\n\n2. **Apple iPhone 16 Pro Max**  \n   - **Price:** $729.97  \n   - **Key Features:** A17 Pro chip, 48MP main camera, Dynamic Island, and Super Retina XDR display.\n\n3. **Google Pixel 9 Pro**  \n   - **Price:** Available at Amazon and Visible  \n   - **Key Features:** Exceptional camera performance, clean Android experience, and timely updates.\n\n4. **Samsung Galaxy Z Fold 6**  \n   - **Price:** Available for preorder at Samsung  \n   - **Key Features:** Foldable design, large 7.6-inch display, and multitasking capabilities.\n\n5. **OnePlus 13**  \n   - **Price:** Available soon  \n   - **Key Features:** Fast charging, high refresh rate display, and premium design.\n\n6. **Motorola Razr Ultra (2025)**  \n   - **Price:** Available soon  \n   - **Key Features:** Flip phone design, compact form factor, and modern specs.\n\n7. **Google Pixel 9**  \n   - **Price:** Available soon  \n   - **Key Features:** Affordable flagship, great camera, and clean Android experience.\n\n8. **Apple iPhone 16e**  \n   - **Price:** Available soon  \n   - **Key Features:** Budget-friendly iPhone with reliable performance and ecosystem.\n\n9. **Samsung Galaxy A54**  \n   - **Price:** Available soon  \n   - **Key Features:** Mid-range smartphone with AMOLED display and good camera performance.\n\n10. **Xiaomi Redmi Note 13 Pro**  \n    - **Price:** Available soon  \n    - **Key Features:** Budget-friendly with high refresh rate display and fast charging.\n\nThese smartphones are highly rated for their performance, camera quality, and overall user experience. Let me know if you'd like more details about any specific model or if you're looking to sell your old phone on Cashify! 😊"
+  },
+  {
+    "timestamp": "2025-06-15T21:00:34.981728",
+    "user": "what are the top 10 smart phones in internet?",
+    "bot": "Here’s a list of the top 10 smartphones available in the market today, based on popularity, performance, and user reviews:\n\n1. **Apple iPhone 16 Pro**  \n2. **Samsung Galaxy S23 Ultra**  \n3. **Google Pixel 8 Pro**  \n4. **OnePlus 13 Pro**  \n5. **Xiaomi Redmi Note 13 Pro**  \n6. **Oppo Reno 10 Pro**  \n7. **Apple iPhone 15 Pro**  \n8. **Samsung Galaxy A54**  \n9. **Google Pixel 7 Pro**  \n10. **Vivo X90 Pro**  \n\nThese smartphones are highly rated for their performance, camera quality, display, and overall user experience. Let me know if you'd like more details about any specific model!"
+  },
+  {
+    "timestamp": "2025-06-15T21:03:18.563194",
+    "user": "what is the status of my current order?",
+    "bot": "Here’s the status of your current order:\n\n**Order ID:** ORD1234567  \n**Product:** Samsung Galaxy A34  \n**Price:** ₹23,499  \n**Status:** Out for Delivery  \n**Delivery Agent:** Ravi Kumar (+91-9988776655)  \n**Estimated Delivery Date:** 2025-06-14  \n**Tracking Link:** [https://tracking.cashify.in/ORD1234567](https://tracking.cashify.in/ORD1234567)\n\nLet me know if you need further assistance!"
   }
 ]
