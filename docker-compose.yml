@@ -1,0 +1,51 @@
+# docker-compose.yml (Solution 1: Fixed Python Path)
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8081:8000"
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+      - /app/.git
+    command: python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    develop:
+      watch:
+        - action: sync
+          path: ./app
+          target: /app/app
+        - action: sync  
+          path: ./api
+          target: /app/api
+        - action: restart
+          path: requirements.txt
+
+  streamlit:
+    build: .
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - ./:/app
+      - /app/.git
+    command: python -m streamlit run streamlit_app.py --server.port 8501 --server.address 0.0.0.0 --server.runOnSave true
+    develop:
+      watch:
+        - action: sync
+          path: ./
+          target: /app
+          ignore:
+            - .git/
+            - __pycache__/
+            - "*.pyc"

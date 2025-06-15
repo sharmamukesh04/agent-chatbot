@@ -1,0 +1,19 @@
+{
+  "user_id": "USR45678",
+  "last_purchases": [
+    {
+      "product_type": "Mobile",
+      "brand": "OnePlus",
+      "model": "11R",
+      "amount": 29999,
+      "purchase_date": "2025-05-30"
+    },
+    {
+      "product_type": "Laptop",
+      "brand": "HP",
+      "model": "Pavilion x360",
+      "amount": 54999,
+      "purchase_date": "2024-12-18"
+    }
+  ]
+}

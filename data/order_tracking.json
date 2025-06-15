@@ -1,0 +1,17 @@
+{
+  "user_id": "USR45678",
+  "order_id": "ORD1234567",
+  "product": {
+    "type": "Mobile",
+    "brand": "Samsung",
+    "model": "Galaxy A34",
+    "price": 23499
+  },
+  "status": "Out for Delivery",
+  "estimated_delivery": "2025-06-14",
+  "tracking_url": "https://tracking.cashify.in/ORD1234567",
+  "delivery_agent": {
+    "name": "Ravi Kumar",
+    "contact": "+91-9988776655"
+  }
+}
