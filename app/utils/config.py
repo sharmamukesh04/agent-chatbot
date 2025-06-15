@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 class GROQConfig(BaseModel):
     """GROQ configuration for LLM"""
     groq_api: str = Field(default_factory=lambda: os.getenv("GROQ_API_KEY", ""))
-    model_name: str = Field(default_factory=lambda: os.getenv("MODEL_NAME", "llama-3.3-70b-versatile"))
+    model_name: str = Field(default_factory=lambda: os.getenv("MODEL_NAME", "deepseek-r1-distill-llama-70b"))
     temperature: float = Field(default_factory=lambda: float(os.getenv("TEMPERATURE", "0.1")))
     max_token: int = Field(default_factory=lambda: int(os.getenv("MAX_TOKENS", "4000")))
 

@@ -5,7 +5,7 @@ services:
   api:
     build: .
     ports:
-      - "8081:8000"
+      - "8080:8000"
     env_file:
       - .env
     environment:
@@ -20,7 +20,7 @@ services:
         - action: sync
           path: ./app
           target: /app/app
-        - action: sync  
+        - action: sync
           path: ./api
           target: /app/api
         - action: restart
@@ -29,7 +29,7 @@ services:
   streamlit:
     build: .
     ports:
-      - "8501:8501"
+      - "8502:8501"
     depends_on:
       - api
     env_file:

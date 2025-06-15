@@ -1,159 +1,135 @@
-from langchain_core.tools import tool
-from ..utils.config import get_settings
-from langchain_core.messages import SystemMessage, AIMessage, ToolMessage, BaseMessage, HumanMessage
-from langchain_community.tools import DuckDuckGoSearchRun
-from .llm import LLMinitialize
 import json
-from ..logs.logger import Logger
+import os
+from langchain_core.tools import tool
 
-
-class AvailableTools:
-
-    def __init__(self):
-        self.settings = get_settings()
-        self.llm = LLMinitialize().get_groq_llm()
-        self.logger = Logger().get_logger()
-        self.tools = [
-            self.about_cashify,
-            self.get_real_time_search,
-            self.get_trending_product,
-            self.get_last_purchases,
-            self.get_order_tracking,
-            self.get_personal_profile
-        ]
-
-    @tool
-    def get_real_time_search(self, user_query: str) -> str:
-        """Real-time search engine for any query. LLM will generate appropriate search terms based on user's question."""
+@tool
+def about_cashify() -> str:
+    """Get Cashify company information"""
+    data_dir = "/app/data"
+    try:
+        filepath = os.path.join(data_dir, "about.txt")
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return f.read()
+    except:
         try:
-            # Generate search query using LLM
-            query_generator_prompt = SystemMessage(content="""You are a search query generator. 
-
-    TASK: Convert user questions into effective search queries for web search.
-
-    RULES:
-    - Keep search queries short and focused
-    - Use relevant keywords only
-    - Remove question words (what, how, when, where, why)
-    - Make it search-engine friendly
-
-    Examples:
-    "What's the price of iPhone 15?" → "iPhone 15 price India"
-    "How many employees does Google have?" → "Google number of employees 2024"
-    "What is the weather in Delhi?" → "Delhi weather today"
-    "Tell me about Tesla cars" → "Tesla cars features specs"
-
-    Respond with ONLY the search query, nothing else.""")
-            
-            query_messages = [query_generator_prompt, HumanMessage(content=f"User question: {user_query}")]
-            query_response = self.llm.invoke(query_messages)
-            
-            search_query = query_response.content.strip()
-            print(f"🔍 Generated search query: {search_query}")
-            
-            # Perform the search
-            search = DuckDuckGoSearchRun()
-            search_results = search.run(search_query)
-            
-            return f"Search Query: {search_query}\n\nResults: {search_results}"
-            
+            filepath = os.path.join(data_dir, "company_info.json")
+            with open(filepath, 'r', encoding='utf-8') as f:
+                company_data = json.load(f)
+            return json.dumps(company_data, indent=2)
         except Exception as e:
-            return f"Could not perform search for: {user_query}. Error: {str(e)}"
+            return f"Error reading company info: {str(e)}"
 
-    @tool
-    def about_cashify(self) -> str:
-        """Get Cashify company info"""
-        try:
-            with open('about.txt', 'r') as f:
-                return f.read()
-        except Exception as e:
-            self.logger.error(
-                msg=f"getting an error while loading about cashify: {str(e)}"
-            )
-            return "Company information unavailable"
+@tool 
+def get_real_time_search(user_query: str) -> str:
+    """Real-time search engine for any query"""
+    data_dir = "/app/data"
+    try:
+        filepath = os.path.join(data_dir, "search_results.json")
+        with open(filepath, 'r', encoding='utf-8') as f:
+            search_data = json.load(f)
+        return f"Search results for '{user_query}':\n" + json.dumps(search_data, indent=2)
+    except Exception as e:
+        return f"Error performing search: {str(e)}"
 
-    @tool
-    def get_order_tracking(self) -> str:
-        """Get order status"""
-        try:
-            with open('order_tracking.json', 'r') as f:
-                data = json.load(f)
-                product = data['product']
-                agent = data['delivery_agent']
-                return f"Order {data['order_id']}: {product['brand']} {product['model']} (₹{product['price']}) - Status: {data['status']}. Delivery Agent: {agent['name']} ({agent['contact']}). Estimated Delivery: {data['estimated_delivery']}. Track: {data['tracking_url']}"
-        except Exception as e:
-            self.logger.error(
-                msg=f"getting an error while loading order tracking info : {str(e)}"
-            )
-            return "Order tracking information unavailable"
+@tool
+def get_trending_product() -> str:
+    """Get trending products"""
+    data_dir = "/app/data"
+    try:
+        filepath = os.path.join(data_dir, "trending_products.json")
+        with open(filepath, 'r', encoding='utf-8') as f:
+            trending_data = json.load(f)
+        
+        # Format like the working Jupyter version
+        result = "Available Products:\n\n📱 MOBILES:\n"
+        for mobile in trending_data.get('mobiles', []):
+            status = "✅ Available" if mobile.get('available', True) else "❌ Out of Stock"
+            result += f"- {mobile.get('brand', 'Unknown')} {mobile.get('model', '')} ({mobile.get('storage', '')}) - ₹{mobile.get('price', 'N/A')} {status}\n"
+        
+        result += "\n💻 LAPTOPS:\n"
+        for laptop in trending_data.get('laptops', []):
+            status = "✅ Available" if laptop.get('available', True) else "❌ Out of Stock"
+            result += f"- {laptop.get('brand', 'Unknown')} {laptop.get('model', '')} ({laptop.get('ram', '')}, {laptop.get('storage', '')}) - ₹{laptop.get('price', 'N/A')} {status}\n"
+        
+        return result
+        
+    except Exception as e:
+        return f"Error reading trending products: {str(e)}"
 
-    @tool
-    def get_last_purchases(self) -> str:
-        """Get purchase history"""
-        try:
-            with open('last_purchase.json', 'r') as f:
-                data = json.load(f)
-                purchases = data['last_purchases']
-                result = "Recent Purchases:\n"
-                for p in purchases:
-                    result += f"- {p['product_type']}: {p['brand']} {p['model']} - ₹{p['amount']} on {p['purchase_date']}\n"
-                return result
-        except Exception as e:
-            self.logger.error(
-                msg=f"getting an error while loading last purchase info: {str(e)}"
-            )
-            return "Purchase history unavailable"
+@tool
+def get_last_purchases() -> str:
+    """Get purchase history"""
+    data_dir = "/app/data"
+    try:
+        filepath = os.path.join(data_dir, "last_purchase.json")
+        with open(filepath, 'r', encoding='utf-8') as f:
+            purchases_data = json.load(f)
+        
+        purchases = purchases_data.get('last_purchases', [])
+        result = "Recent Purchases:\n"
+        for p in purchases:
+            result += f"- {p.get('product_type', 'Item')}: {p.get('brand', '')} {p.get('model', '')} - ₹{p.get('amount', 'N/A')} on {p.get('purchase_date', 'Unknown date')}\n"
+        
+        return result
+        
+    except Exception as e:
+        return f"Error reading purchase history: {str(e)}"
 
-    @tool 
-    def get_personal_profile(self) -> str:
-        """Get user profile"""
-        try:
-            with open('points.json', 'r') as f:
-                data = json.load(f)
-                gift_cards = data.get('gift_cards', [])
-                cards_info = ""
-                for card in gift_cards:
-                    cards_info += f"  - {card['vendor']}: ₹{card['value']} (Expires: {card['expiry']}, Status: {card['status']})\n"
-                
-                return f"Profile: {data['name']} ({data['email']})\nCoins Balance: {data['coins_balance']}\nGift Cards:\n{cards_info}"
-        except Exception as e:
-            self.logger.error(
-                msg=f"getting an error while loading personal info: {str(e)}"
-            )
-            return "Profile information unavailable"
+@tool
+def get_order_tracking() -> str:
+    """Get order status and tracking"""
+    data_dir = "/app/data"
+    try:
+        filepath = os.path.join(data_dir, "order_tracking.json")
+        with open(filepath, 'r', encoding='utf-8') as f:
+            tracking_data = json.load(f)
+        
+        # Format like the working Jupyter version  
+        product = tracking_data.get('product', {})
+        agent = tracking_data.get('delivery_agent', {})
+        
+        result = f"Order {tracking_data.get('order_id', 'Unknown')}: "
+        result += f"{product.get('brand', '')} {product.get('model', '')} "
+        result += f"(₹{product.get('price', 'N/A')}) - "
+        result += f"Status: {tracking_data.get('status', 'Unknown')}. "
+        result += f"Delivery Agent: {agent.get('name', 'Unknown')} ({agent.get('contact', 'N/A')}). "
+        result += f"Estimated Delivery: {tracking_data.get('estimated_delivery', 'TBD')}. "
+        result += f"Track: {tracking_data.get('tracking_url', 'N/A')}"
+        
+        return result
+        
+    except Exception as e:
+        return f"Error reading order tracking: {str(e)}"
 
-    @tool 
-    def get_trending_product(self) -> str:
-        """Get trending products on Cashify"""
-        try:
-            with open('trending_products.json', 'r') as f:
-                data = json.load(f)
-                result = "Available Products:\n\n📱 MOBILES:\n"
-                for mobile in data.get('mobiles', []):
-                    status = "✅ Available" if mobile['available'] else "❌ Out of Stock"
-                    result += f"- {mobile['brand']} {mobile['model']} ({mobile['storage']}) - ₹{mobile['price']} {status}\n"
-                
-                result += "\n💻 LAPTOPS:\n"
-                for laptop in data.get('laptops', []):
-                    status = "✅ Available" if laptop['available'] else "❌ Out of Stock"
-                    result += f"- {laptop['brand']} {laptop['model']} ({laptop['ram']}, {laptop['storage']}) - ₹{laptop['price']} {status}\n"
-                
-                return result
-        except Exception as e:
-            self.logger.error(
-                msg=f"getting an error while loading trending products: {str(e)}"
-            )
-            return "Product catalog unavailable"
-    
-    # def get_all_tools(self):
-    #     tools = [
-    #         self.about_cashify,
-    #         self.get_real_time_search,
-    #         self.get_trending_product,
-    #         self.get_last_purchases,
-    #         self.get_order_tracking,
-    #         self.get_personal_profile
-    #     ]
+@tool
+def get_personal_profile() -> str:
+    """Get user profile information"""
+    data_dir = "/app/data"
+    try:
+        filepath = os.path.join(data_dir, "points.json")
+        with open(filepath, 'r', encoding='utf-8') as f:
+            profile_data = json.load(f)
+        
+        # Format like the working Jupyter version
+        gift_cards = profile_data.get('gift_cards', [])
+        cards_info = ""
+        for card in gift_cards:
+            cards_info += f"  - {card.get('vendor', 'Unknown')}: ₹{card.get('value', 'N/A')} (Expires: {card.get('expiry', 'Unknown')}, Status: {card.get('status', 'Unknown')})\n"
+        
+        result = f"Profile: {profile_data.get('name', 'Unknown')} ({profile_data.get('email', 'Unknown')})\n"
+        result += f"Coins Balance: {profile_data.get('coins_balance', 'N/A')}\n"
+        result += f"Gift Cards:\n{cards_info}"
+        
+        return result
+        
+    except Exception as e:
+        return f"Error reading profile: {str(e)}"
 
-    #     return tools
-
+AVAILABLE_TOOLS = [
+    about_cashify,
+    get_real_time_search, 
+    get_trending_product,
+    get_last_purchases,
+    get_order_tracking,
+    get_personal_profile
+]
