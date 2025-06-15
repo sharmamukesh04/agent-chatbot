@@ -1,0 +1,12 @@
+[
+  {
+    "timestamp": "2025-06-15T20:28:19.625556",
+    "user": "what are the top 5 smart phones in internet?",
+    "bot": "Here are the top trending smartphones available right now:\n\n1. **Apple iPhone 15 Pro (128GB)** - ₹129,900 ✅ Available  \n2. **Samsung Galaxy S24 Ultra (256GB)** - ₹119,999 ✅ Available  \n\nLet me know if you'd like more details or help with anything else! 😊"
+  },
+  {
+    "timestamp": "2025-06-15T20:28:51.064676",
+    "user": "what are the trending products ?\n",
+    "bot": "Here are the trending products available on Cashify:\n\n📱 **MOBILES:**\n- **Apple iPhone 15 Pro (128GB)** - ₹129,900 ✅ Available\n- **Samsung Galaxy S24 Ultra (256GB)** - ₹119,999 ✅ Available\n\n💻 **LAPTOPS:**\n- **Dell XPS 13 (16GB, 512GB SSD)** - ₹99,990 ✅ Available\n- **Apple MacBook Air M3 (8GB, 256GB SSD)** - ₹114,900 ❌ Out of Stock\n\nLet me know if you'd like more details or assistance!"
+  }
+]
