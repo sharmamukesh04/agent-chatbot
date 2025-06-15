@@ -1,9 +1,11 @@
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
-from app.models.state import AgentState
+from app.models.state import AgentState, QueryResponses
 from langchain_core.messages import AIMessage, SystemMessage, HumanMessage, ToolMessage
 from ..logs.logger import Logger
 import re
+from typing import List
+import uuid
 
 class WorkflowOrchestrator:
     """Orchestrates the chatbot workflow - Fixed Version"""
@@ -18,137 +20,98 @@ class WorkflowOrchestrator:
         self.logger = Logger().get_logger()
 
     def _judge_query(self, state: AgentState) -> AgentState:
-        """LLM-based query validation with robust prompt"""
         user_query = state["user_query"]
         
-        # Much better judge prompt - focuses on intent rather than exact words
-        judge_prompt = SystemMessage(content="""You are a customer service query validator for Cashify (an Indian smartphone marketplace).
+        judge_prompt = SystemMessage(content="""You are a strict Cashify customer service query validator. Handle queries in ANY language (English, Hindi, etc.).
 
-YOUR JOB: Determine if this is a reasonable customer service question.
+    ACCEPT ONLY these Cashify-related topics:
+    • Order status, tracking, delivery (ऑर्डर स्थिति, ट्रैकिंग, डिलीवरी)
+    • Account/profile/coins (खाता, प्रोफाइल, सिक्के)
+    • Purchase history (खरीदारी का इतिहास)
+    • Product prices, availability (उत्पाद मूल्य, उपलब्धता)
+    • Cashify company information
+    • Gadgets, smartphones, laptops (गैजेट्स, स्मार्टफोन, लैपटॉप)
+    • Simple greetings (hello, नमस्ते, hi)
 
-ACCEPT these types of questions (even with typos/grammar errors):
-• Order status, tracking, delivery questions
-• Account/profile information requests  
-• Purchase history inquiries
-• Product availability, prices, specifications
-• Company information requests
-• Coins, points, rewards questions
-• General help requests
-• Greetings and casual conversation
-• Any question a customer might reasonably ask
+    STRICTLY REJECT everything else including:
+    • Suicide, self-harm, mental health (आत्महत्या, मानसिक स्वास्थ्य)
+    • Personal advice, relationships (व्यक्तिगत सलाह)
+    • Other companies/services
+    • General knowledge questions
+    • Health, medical advice (स्वास्थ्य सलाह)
+    • Philosophy, religion, politics
+    • Harmful/dangerous content
 
-REJECT only these:
-• Clearly harmful/dangerous content
-• Obviously spam or gibberish
-• Requests for illegal activities
+    Examples:
+    "मेरा ऑर्डर कहाँ है?" → ACCEPT
+    "iPhone की कीमत क्या है?" → ACCEPT  
+    "मैं परेशान हूँ" → REJECT
+    "how to commit suicide" → REJECT
+    "what is the meaning of life" → REJECT
 
-REMEMBER: 
-- Customers may have typos or poor grammar
-- Be VERY generous - when in doubt, ACCEPT
-- This is customer service - almost all questions are valid
-
-Respond with exactly one word: ACCEPT or REJECT
-
-Examples:
-"what is the status of my current order?" → ACCEPT
-"how many coins do i hav?" → ACCEPT (typo but valid)
-"tell me about cashify" → ACCEPT  
-"wher is my delivry?" → ACCEPT (typos but valid intent)
-"hello" → ACCEPT
-"i want to buy iphone" → ACCEPT
-"how to hack phones?" → REJECT
-"random gibberish xyz123" → REJECT""")
+    Respond with exactly: ACCEPT or REJECT""")
         
         try:
-            judge_messages = [judge_prompt, HumanMessage(content=f"Customer query: {user_query}")]
+            judge_messages = [judge_prompt, HumanMessage(content=f"Query: {user_query}")]
             judge_response = self.llm.invoke(judge_messages)
-            
-            # Parse the response more robustly
             decision_text = judge_response.content.strip().upper()
             
-            # Look for ACCEPT/REJECT in the response
-            if "ACCEPT" in decision_text:
-                is_valid = True
-                decision = "ACCEPT"
-            elif "REJECT" in decision_text:
-                is_valid = False
-                decision = "REJECT"
-            else:
-                # If unclear response, default to ACCEPT (customer service should be permissive)
-                is_valid = True
-                decision = "ACCEPT (unclear response, defaulting to accept)"
-                self.logger.warning(f"Unclear judge response: {decision_text}")
+            is_valid = "ACCEPT" in decision_text
+            decision = "ACCEPT" if is_valid else "REJECT"
             
             self.logger.info(f"Judge decision for '{user_query}': {decision} -> {is_valid}")
             return {**state, "is_valid": is_valid}
             
         except Exception as e:
-            # If judge completely fails, default to ACCEPT
-            self.logger.error(f"Judge error, defaulting to ACCEPT: {e}")
-            return {**state, "is_valid": True}
+            self.logger.error(f"Judge error, defaulting to REJECT: {e}")
+            return {**state, "is_valid": False}
+
+    def _handle_invalid_query(self, state: AgentState) -> AgentState:
+        return {
+            **state,
+            "messages": [AIMessage(content="I am a Cashify Chatbot and I can help you on query related to gadgets or queries related to cashify only")],
+            "iteration_count": 0,
+            "global_iteration": 0,
+            "answer_satisfied": True
+        }
 
     def _model_call(self, state: AgentState) -> AgentState:
-        """Enhanced model call with better tool result handling"""
-        
         current_iteration = state.get('iteration_count', 0)
-        global_iteration = state.get('global_iteration', 0)
         
-        # Check if we just got tool results
-        has_tool_results = any(isinstance(msg, ToolMessage) for msg in state['messages'])
-        
-        if has_tool_results and current_iteration > 1:
-            # We have tool results, generate final answer
-            tool_results = []
-            for msg in reversed(state['messages']):
-                if isinstance(msg, ToolMessage):
-                    tool_results.append(msg.content)
-                    break  # Get the most recent tool result
-            
-            if tool_results:
-                # Create final response using tool results
-                final_response = AIMessage(content=f"Based on your request, here's the information:\n\n{tool_results[0]}")
-                
-                self.logger.info(f"Generated final response from tool results: {final_response.content[:50]}...")
-                
-                return {
-                    **state,
-                    "messages": [final_response],
-                    "iteration_count": current_iteration + 1
-                }
-        
-        # Enhanced system prompt
-        system_prompt = SystemMessage(content="""You are a Cashify customer service chatbot.
+        system_prompt = SystemMessage(content="""You are a Cashify customer service chatbot. Respond in the user's language (English/Hindi).
 
-AVAILABLE TOOLS - USE THEM:
-- get_order_tracking: For order status questions
-- get_personal_profile: For profile/coins questions  
-- get_last_purchases: For purchase history
-- get_trending_product: For available products
-- about_cashify: For company information
-- get_real_time_search: For general searches
+    ABSOLUTE RESTRICTIONS:
+    - ONLY answer Cashify, gadgets, smartphones, laptops queries
+    - NEVER provide advice on suicide, mental health, personal problems
+    - For ANY restricted topic, respond EXACTLY: "I am a Cashify Chatbot and I can help you on query related to gadgets or queries related to cashify only"
 
-IMPORTANT RULES:
-1. For "order status" questions → CALL get_order_tracking tool
-2. After calling tools, wait for results and provide a helpful response
-3. Do NOT repeat the same response multiple times
-4. If you already called a tool, use the results to answer
-
-Current iteration: {current_iteration}""")
+    AVAILABLE TOOLS:
+    - get_order_tracking: Order status
+    - get_personal_profile: Profile/coins  
+    - get_last_purchases: Purchase history
+    - get_trending_product: Products
+    - about_cashify: Company info
+    - get_real_time_search: Gadget searches""")
         
         messages_to_send = [system_prompt] + state['messages']
         
         try:
             response = self.llm_with_tools.invoke(messages_to_send)
             
-            # Check if response is empty or problematic
-            if not hasattr(response, 'content'):
-                response.content = "Let me help you with that."
-            elif not response.content:
-                response.content = "Let me help you with that."
-            else:
-                response.content = self._clean_response(response.content)
+            if not hasattr(response, 'content') or not response.content:
+                response.content = "I am a Cashify Chatbot and I can help you on query related to gadgets or queries related to cashify only"
             
-            self.logger.info(f"Model response - Content: '{response.content[:50]}...', Tool calls: {bool(getattr(response, 'tool_calls', None))}, Iteration: {current_iteration}")
+            response_lower = response.content.lower()
+            restricted_phrases = [
+                'sorry to hear', 'mental health', 'helpline', 'crisis', 'professional',
+                'therapy', 'counseling', 'suicide prevention', 'reach out', 'trusted person',
+                'मानसिक स्वास्थ्य', 'सलाह', 'परेशान', 'दुखी'
+            ]
+            
+            if any(phrase in response_lower for phrase in restricted_phrases):
+                response.content = "I am a Cashify Chatbot and I can help you on query related to gadgets or queries related to cashify only"
+            
+            self.logger.info(f"Model response: {response.content[:50]}...")
             
             return {
                 **state,
@@ -160,7 +123,7 @@ Current iteration: {current_iteration}""")
             self.logger.error(f"Model call error: {e}")
             return {
                 **state,
-                "messages": [AIMessage(content="Let me help you with your Cashify query.")],
+                "messages": [AIMessage(content="I am a Cashify Chatbot and I can help you on query related to gadgets or queries related to cashify only")],
                 "iteration_count": current_iteration + 1
             }
 
@@ -182,7 +145,6 @@ Current iteration: {current_iteration}""")
         last_message = state['messages'][-1]
         answer = getattr(last_message, 'content', '')
         
-        # Check if we have tool results in the conversation
         tool_results = []
         for msg in state['messages']:
             if isinstance(msg, ToolMessage):
@@ -190,15 +152,12 @@ Current iteration: {current_iteration}""")
         
         self.logger.info(f"Answer quality check - Tool results found: {len(tool_results)}, Answer length: {len(answer)}")
         
-        # If we have tool results and a reasonable answer, consider it satisfied
         if tool_results and answer and len(answer.strip()) > 20:
             # Check if the answer actually uses the tool results
             if any(keyword in answer.lower() for keyword in ['order', 'status', 'tracking', 'delivery']):
                 self.logger.info("Answer quality: SATISFIED (has tool results and relevant content)")
                 return {**state, "answer_satisfied": True}
         
-        # If we have tool results but poor answer, we should be satisfied anyway
-        # (the tool was called successfully)
         if tool_results:
             self.logger.info("Answer quality: SATISFIED (tool results available)")
             return {**state, "answer_satisfied": True}
@@ -328,10 +287,9 @@ Respond with ONLY:
         graph.add_edge("max_retries", END)
         
         return graph.compile()
-
-    def process_query(self, user_input: str) -> str:
-        """Process user query"""
-        
+    
+    def process_query(self, user_input: str) -> QueryResponses:
+        """Process user query and return QueryResponses object"""
         state = {
             "messages": [HumanMessage(content=user_input)],
             "user_query": user_input,
@@ -342,37 +300,60 @@ Respond with ONLY:
         }
         
         try:
-            self.logger.info(f"Processing query: {user_input}")
+            logger_messages = [HumanMessage(content=user_input)]
             result = self.workflow.invoke(state)
             
-            self.logger.info(f"Workflow result keys: {result.keys()}")
-            self.logger.info(f"Total messages in result: {len(result.get('messages', []))}")
-            
-            # Get the final message
-            if result.get('messages'):
-                final_msg = result['messages'][-1]
-                final_content = getattr(final_msg, 'content', '')
-                
-                # Check if content is empty or just whitespace
-                if not final_content or not final_content.strip():
-                    self.logger.warning("Empty final response detected")
+            if result and result.get('messages'):
+                for message in result['messages']:
+                    if hasattr(message, 'content') and message.content:
+                        logger_messages.append(message)
                     
-                    # Look for tool results in the conversation
+                    if hasattr(message, 'tool_calls') and message.tool_calls:
+                        for tool_call in message.tool_calls:
+                            tool_name = tool_call.get('name', 'unknown')
+                            tool_args = tool_call.get('args', {})
+                            # Create ToolMessage with proper tool_call_id
+                            tool_call_id = tool_call.get('id', str(uuid.uuid4()))
+                            tool_msg = ToolMessage(
+                                content=f"Tool: {tool_name}, Args: {tool_args}",
+                                tool_call_id=tool_call_id
+                            )
+                            logger_messages.append(tool_msg)
+                    
+                    if isinstance(message, ToolMessage):
+                        logger_messages.append(message)
+                
+                final_msg = result['messages'][-1]
+                final_response = getattr(final_msg, 'content', '')
+                
+                if not final_response or not final_response.strip():
                     for msg in reversed(result['messages']):
                         if isinstance(msg, ToolMessage) and msg.content:
-                            final_content = f"Here's the information you requested:\n\n{msg.content}"
+                            final_response = f"Here's the information you requested:\n\n{msg.content}"
                             break
-                    
-                    # If still empty, provide a default response
-                    if not final_content or not final_content.strip():
-                        final_content = "I apologize, but I couldn't retrieve the information. Please try again or contact support."
-                
-                self.logger.info(f"Final response: {final_content[:100]}...")
-                return final_content
+                    if not final_response:
+                        final_response = "I couldn't retrieve the information. Please try again."
             else:
-                self.logger.error("No messages in workflow result")
-                return "I encountered an issue processing your request. Please try again."
+                final_response = "I encountered an issue processing your request."
+                # Create ToolMessage with proper tool_call_id
+                error_id = str(uuid.uuid4())
+                logger_messages.append(ToolMessage(
+                    content="No workflow result",
+                    tool_call_id=error_id
+                ))
+            
+            return QueryResponses(
+                final_response=final_response,
+                messages=logger_messages
+            )
             
         except Exception as e:
-            self.logger.error(f"Query processing error: {e}")
-            return f"Error processing query: {str(e)}"
+            # Create ToolMessage with proper tool_call_id
+            error_id = str(uuid.uuid4())
+            return QueryResponses(
+                final_response=f"Error processing query: {str(e)}",
+                messages=[ToolMessage(
+                    content=f"Error: {str(e)}",
+                    tool_call_id=error_id
+                )]
+            )

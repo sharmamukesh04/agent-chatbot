@@ -1,135 +1,267 @@
+# ===== FIX: Add this to the top of your streamlit_app.py =====
+
+import sys
+import os
+import asyncio
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
+# Fix threading context for Streamlit
+sys.path.insert(0, '/app')
+sys.path.insert(0, '/app/app')
+
 import streamlit as st
-import requests
+import io
+from contextlib import redirect_stdout
 import time
-import json
+import traceback
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Import strategies with error handling
+try:
+    from app.services.chatbot import CashifyChatbotService
+    from app.models.state import QueryResponses
+    import_strategy = "Direct import successful"
+except ImportError as e:
+    import requests
+    CashifyChatbotService = None
+    QueryResponses = None
+    import_strategy = f"Using FastAPI fallback: {e}"
 
 # Page config
-st.set_page_config(
-    page_title="Cashify AI Assistant",
-    page_icon="🤖",
-    layout="wide"
-)
+st.set_page_config(page_title="Cashify AI Assistant", page_icon="🤖", layout="wide")
 
 # Initialize session state
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Hello! How can I assist you today? Whether it's about your order, profile, purchases, or anything else, feel free to ask!"}
-    ]
+    st.session_state.messages = []
 
-if "tool_activities" not in st.session_state:
-    st.session_state.tool_activities = []
+if "agent_logs" not in st.session_state:
+    st.session_state.agent_logs = []
 
 if "processing" not in st.session_state:
     st.session_state.processing = False
 
-if "use_real_api" not in st.session_state:
-    st.session_state.use_real_api = True
+if "log_container" not in st.session_state:
+    st.session_state.log_container = None
 
-# Custom CSS
-st.markdown("""
-<style>
-    .tool-activity {
-        background-color: #f0f2f6;
-        padding: 12px;
-        border-radius: 8px;
-        margin: 8px 0;
-        border-left: 4px solid #1f77b4;
-    }
-    .tool-thinking { border-left-color: #ff9800; background-color: #fff3e0; }
-    .tool-completed { border-left-color: #4caf50; background-color: #e8f5e9; }
-    .status-dot { 
-        display: inline-block; 
-        width: 8px; 
-        height: 8px; 
-        border-radius: 50%; 
-        margin-right: 8px; 
-    }
-    .thinking { background-color: #ff9800; animation: pulse 1s infinite; }
-    .completed { background-color: #4caf50; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-</style>
-""", unsafe_allow_html=True)
+# Fixed chatbot initialization
+if "chatbot" not in st.session_state:
+    try:
+        if CashifyChatbotService:
+            st.session_state.chatbot = CashifyChatbotService()
+            logger.info("✅ Streamlit chatbot initialized successfully")
+        else:
+            st.session_state.chatbot = None
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize chatbot: {str(e)}")
+        st.session_state.chatbot = None
 
-def get_api_response(query):
-    """Get response from FastAPI backend"""
-    api_urls = [
-        "http://api:8000/chat", 
-        "http://localhost:8080/chat", 
-        "http://127.0.0.1:8080/chat", 
-    ]
+class ThreadSafeLogCapture:
+    """Thread-safe log capture that works with Streamlit"""
+    def __init__(self, log_container):
+        self.logs = []
+        self.log_container = log_container
+        self._lock = threading.Lock()
+        
+    def write(self, message):
+        if message.strip():
+            with self._lock:
+                self.logs.append(message.strip())
+            # Don't update display from background threads
+            
+    def flush(self):
+        pass
     
-    for url in api_urls:
+    def update_display_safe(self):
+        """Update display from main thread only"""
         try:
-            response = requests.post(
-                url,
-                json={"message": query},
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("response", "Sorry, I couldn't process your request."), True
-                
-        except requests.exceptions.RequestException:
-            continue
-    
-    return "Sorry There is something Wrong", False
+            if self.log_container and self.logs:
+                with self.log_container.container():
+                    for log in self.logs[-20:]:
+                        log = str(log).strip()
+                        if not log:
+                            continue
+                        
+                        if "🤖 Processing query" in log:
+                            st.info(f"📝 {log}")
+                        elif "🔄 AI thinking" in log:
+                            st.success(f"🚀 {log}")
+                        elif "🔧 Calling tool" in log:
+                            st.warning(f"🛠️ {log}")
+                        elif "Step" in log:
+                            st.code(log, language=None)
+                        elif "❌ ERROR" in log:
+                            st.error(f"⚠️ {log}")
+                        else:
+                            st.text(log)
+        except Exception as e:
+            logger.error(f"Display update error: {e}")
 
-def display_tool_activities():
-    """Display tool activities"""
-    if st.session_state.tool_activities:
-        for activity in st.session_state.tool_activities:
-            status_text = "Processing..." if activity["status"] == "thinking" else "Completed"
-            dot_class = activity["status"]
+def format_message_for_display(message) -> str:
+    """Convert different message types to display format"""
+    if isinstance(message, str):
+        return message
+    
+    if hasattr(message, 'content'):
+        message_type = type(message).__name__
+        content = getattr(message, 'content', '')
+        
+        if 'HumanMessage' in message_type:
+            return f"🤖 USER: {content}"
+        elif 'AIMessage' in message_type:
+            return f"💬 AI: {content[:100]}..." if len(content) > 100 else f"💬 AI: {content}"
+        elif 'ToolMessage' in message_type:
+            return f"🔧 Tool: {content[:100]}..." if len(content) > 100 else f"🔧 Tool: {content}"
+        else:
+            return f"📋 {message_type}: {content}"
+    
+    return str(message)
+
+def call_fastapi_endpoint(message: str) -> str:
+    """Fallback: Call FastAPI endpoint"""
+    try:
+        api_urls = [
+            "http://api:8000/chat",
+            "http://localhost:8080/chat",
+            "http://127.0.0.1:8080/chat"
+        ]
+        
+        for url in api_urls:
+            try:
+                response = requests.post(
+                    url,
+                    json={"message": message},
+                    timeout=30
+                )
+                if response.status_code == 200:
+                    return response.json()["response"]
+            except requests.exceptions.RequestException:
+                continue
+        
+        return "❌ Could not connect to FastAPI service"
+        
+    except Exception as e:
+        return f"❌ API call error: {str(e)}"
+
+def run_agent_safe(query, log_capture):
+    """Run agent in a thread-safe manner"""
+    try:
+        if st.session_state.chatbot:
+            # Run chatbot with captured stdout
+            with redirect_stdout(log_capture):
+                response_obj = st.session_state.chatbot.chat(query)
             
-            st.markdown(f"""
-            <div class="tool-activity tool-{activity['status']}">
-                <div style="font-weight: bold;">
-                    <span class="status-dot {dot_class}"></span>
-                    {activity['tool']}
-                </div>
-                <div style="font-size: 0.9em; color: #666; margin-top: 4px;">
-                    {status_text}
-                </div>
-                {f'<div style="font-size: 0.8em; color: #888; margin-top: 4px;">{activity["description"]}</div>' if activity["description"] else ''}
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.info("Tool activities will appear here when you send a message")
+            # Extract response
+            if hasattr(response_obj, 'final_response') and hasattr(response_obj, 'messages'):
+                final_response = response_obj.final_response
+                
+                # Log messages safely
+                for i, message in enumerate(response_obj.messages):
+                    try:
+                        formatted_message = format_message_for_display(message)
+                        log_capture.write(f"Step {i+1}: {formatted_message}")
+                    except Exception as e:
+                        log_capture.write(f"Step {i+1}: Error: {str(e)}")
+                
+                return final_response if final_response else "I couldn't generate a response."
+            else:
+                return str(response_obj)
+        else:
+            # Use FastAPI fallback
+            return call_fastapi_endpoint(query)
+            
+    except Exception as e:
+        log_capture.write(f"❌ ERROR: {str(e)}")
+        logger.error(f"Agent error: {str(e)}")
+        return f"Error: {str(e)}"
+
+def run_agent_with_realtime_logs(query, log_container):
+    """Main function to run agent with real-time logs"""
+    log_capture = ThreadSafeLogCapture(log_container)
+    
+    try:
+        log_capture.write(f"🔍 Processing: {query}")
+        
+        # Run agent in current thread (avoid threading issues)
+        response = run_agent_safe(query, log_capture)
+        
+        # Update logs in session state
+        st.session_state.agent_logs = log_capture.logs
+        
+        # Update display safely
+        log_capture.update_display_safe()
+        
+        return response
+        
+    except Exception as e:
+        error_msg = f"❌ ERROR: {str(e)}"
+        log_capture.write(error_msg)
+        st.session_state.agent_logs = log_capture.logs
+        return f"Error: {str(e)}"
 
 # Header
 st.title("🤖 Cashify AI Assistant")
-st.caption("Your intelligent customer service companion")
+st.caption("Real LLM Agent with Decision Tracking")
 
-# with st.sidebar:
-#     st.header("🔧 Tool Activity")
-#     display_tool_activities()
+# Sidebar
+with st.sidebar:
+    st.header("🤖 Agent Decision Steps")
     
-#     st.markdown("---")
+    # Debug info
+    with st.expander("🔧 Debug Info"):
+        st.write(f"Import: {import_strategy}")
+        st.write(f"Chatbot: {st.session_state.chatbot is not None}")
     
-#     # API Status indicator
-#     if st.session_state.use_real_api:
-#         st.success("🟢 **Connected to Real API**")
-#     else:
-#         st.warning("🟡 **Using Mock Data** (API unavailable)")
+    # Log container
+    log_placeholder = st.empty()
+    st.session_state.log_container = log_placeholder
     
-#     if st.button("🔄 Clear Chat", key="clear_chat_button"):
-#         st.session_state.messages = [
-#             {"role": "assistant", "content": "Hello! How can I assist you today?"}
-#         ]
-#         st.session_state.tool_activities = []
-#         st.session_state.processing = False
-#         st.rerun()
+    # Show logs
+    if st.session_state.agent_logs:
+        with log_placeholder.container():
+            for log in st.session_state.agent_logs[-15:]:
+                log = str(log).strip()
+                if not log:
+                    continue
+                if "🔍 Processing" in log:
+                    st.info(f"📝 {log}")
+                elif "Step" in log:
+                    st.code(log, language=None)
+                elif "❌ ERROR" in log:
+                    st.error(f"⚠️ {log}")
+                else:
+                    st.text(log)
+    else:
+        with log_placeholder.container():
+            st.info("Logs will appear here...")
+    
+    st.markdown("---")
+    st.subheader("💬 Stats")
+    st.metric("Messages", len(st.session_state.messages))
+    st.metric("Logs", len(st.session_state.agent_logs))
+    
+    if st.button("🔄 Clear", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.agent_logs = []
+        st.session_state.processing = False
+        st.rerun()
 
-# # Display messages
+# Chat history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 # Chat input
-if prompt := st.chat_input("Type your message here..."):
+if prompt := st.chat_input("Ask me anything about Cashify..."):
     if not st.session_state.processing:
         st.session_state.processing = True
+        
+        # Clear logs
+        st.session_state.agent_logs = []
         
         # Add user message
         st.session_state.messages.append({"role": "user", "content": prompt})
@@ -138,62 +270,11 @@ if prompt := st.chat_input("Type your message here..."):
         with st.chat_message("user"):
             st.markdown(prompt)
         
-        # Process with tool simulation
+        # Process and show response
         with st.chat_message("assistant"):
-            # Show progress
-            progress_placeholder = st.empty()
-            
-            with progress_placeholder:
-                st.info("🔍 Validating query...")
-                st.session_state.tool_activities = [{"tool": "Query Validator", "status": "thinking", "description": "Analyzing your request..."}]
-            time.sleep(0.5)
-            
-            with progress_placeholder:
-                st.info("⚙️ Processing query...")
-                st.session_state.tool_activities = [
-                    {"tool": "Query Validator", "status": "completed", "description": "Query validated"},
-                    {"tool": "Query Processor", "status": "thinking", "description": "Determining action..."}
-                ]
-            time.sleep(0.5)
-
-            tool_name, tool_desc = get_tool_info(prompt)
-            with progress_placeholder:
-                st.info(f"🔧 Executing {tool_name}...")
-                st.session_state.tool_activities = [
-                    {"tool": "Query Validator", "status": "completed", "description": "Query validated"},
-                    {"tool": "Query Processor", "status": "completed", "description": "Action determined"},
-                    {"tool": tool_name, "status": "thinking", "description": tool_desc}
-                ]
-            time.sleep(0.8)
-            
-            with progress_placeholder:
-                st.info("✨ Generating response...")
-                st.session_state.tool_activities = [
-                    {"tool": "Query Validator", "status": "completed", "description": "Query validated"},
-                    {"tool": "Query Processor", "status": "completed", "description": "Action determined"},
-                    {"tool": tool_name, "status": "completed", "description": "Data retrieved"},
-                    {"tool": "Response Generator", "status": "thinking", "description": "Crafting response..."}
-                ]
-            time.sleep(0.3)
-            
-            # Get response (try real API first, fallback to mock)
-            assistant_response, is_real_api = get_api_response(prompt)
-            st.session_state.use_real_api = is_real_api
-            
-            # Final update
-            st.session_state.tool_activities = [
-                {"tool": "Query Validator", "status": "completed", "description": "Query validated"},
-                {"tool": "Query Processor", "status": "completed", "description": "Action determined"},
-                {"tool": tool_name, "status": "completed", "description": "Data retrieved"},
-                {"tool": "Response Generator", "status": "completed", "description": "Response ready"}
-            ]
-            
-            # Clear progress and show response
-            progress_placeholder.empty()
-            st.markdown(assistant_response)
-            
-            # Add to session state
-            st.session_state.messages.append({"role": "assistant", "content": assistant_response})
+            with st.spinner("Processing..."):
+                response = run_agent_with_realtime_logs(prompt, st.session_state.log_container)
+                st.markdown(response)
+                st.session_state.messages.append({"role": "assistant", "content": response})
         
-        # Reset processing flag
         st.session_state.processing = False
