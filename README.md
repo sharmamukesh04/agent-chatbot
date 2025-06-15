@@ -17,9 +17,8 @@ An intelligent customer service chatbot for Cashify's smartphone marketplace. Bu
 
 ## 🏗️ Architecture
 
-```
 ![Graph Architecture](image.png)
-```
+
 
 **Tech Stack**: Python • FastAPI • Streamlit • LangGraph • Groq API • Docker
 
@@ -33,11 +32,10 @@ An intelligent customer service chatbot for Cashify's smartphone marketplace. Bu
 ```bash
 # Clone repository
 git clone git@github.com:sharmamukesh04/agent-chatbot.git
-cd cashify-chatbot
+cd agent-chatbot
 
 # Environment setup
 echo "GROQ_API_KEY=your_api_key_here" > .env
-
 
 # Run application
 docker-compose up --build
@@ -57,16 +55,6 @@ docker-compose up --build
 | `get_real_time_search` | Live web search for gadgets |
 | `about_cashify` | Company information |
 
-
-
-## 🔧 Configuration
-
-### Workflow Settings
-```python
-max_tool_iterations = 3
-max_global_iterations = 2
-model = "llama-3.1-70b-versatile"
-```
 
 ### API Usage
 ```bash
@@ -105,8 +93,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 🙋‍♂️ Support
 
 - 📖 [Documentation](docs/)
-- 🐛 [Issue Tracker](issues/)
-- 💬 [Discussions](discussions/)
+- 🐛 [Issue Tracker](https://github.com/sharmamukesh04/agent-chatbot/issues)
+- 💬 [Discussions](https://github.com/sharmamukesh04/agent-chatbot/discussions)
 
 ---
 
