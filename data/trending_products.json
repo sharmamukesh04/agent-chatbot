@@ -1,0 +1,36 @@
+{
+  "mobiles": [
+    {
+      "brand": "Apple",
+      "model": "iPhone 15 Pro",
+      "storage": "128GB",
+      "price": 129900,
+      "available": true
+    },
+    {
+      "brand": "Samsung",
+      "model": "Galaxy S24 Ultra",
+      "storage": "256GB",
+      "price": 119999,
+      "available": true
+    }
+  ],
+  "laptops": [
+    {
+      "brand": "Dell",
+      "model": "XPS 13",
+      "ram": "16GB",
+      "storage": "512GB SSD",
+      "price": 99990,
+      "available": true
+    },
+    {
+      "brand": "Apple",
+      "model": "MacBook Air M3",
+      "ram": "8GB",
+      "storage": "256GB SSD",
+      "price": 114900,
+      "available": false
+    }
+  ]
+}

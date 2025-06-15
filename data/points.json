@@ -1,0 +1,20 @@
+{
+  "user_id": "USR45678",
+  "name": "Sanya Malhotra",
+  "email": "sanya.m@example.com",
+  "coins_balance": 650,
+  "gift_cards": [
+    {
+      "vendor": "Amazon",
+      "value": 500,
+      "expiry": "2025-07-01",
+      "status": "unused"
+    },
+    {
+      "vendor": "Flipkart",
+      "value": 1000,
+      "expiry": "2024-11-15",
+      "status": "used"
+    }
+  ]
+}
