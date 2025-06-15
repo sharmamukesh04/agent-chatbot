@@ -17,6 +17,9 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+
+
 try:
     from app.services.chatbot import CashifyChatbotService
     from app.models.state import QueryResponses
@@ -28,6 +31,23 @@ except ImportError as e:
     import_strategy = f"Using FastAPI fallback: {e}"
 
 st.set_page_config(page_title="Cashify AI Assistant", page_icon="🤖", layout="wide")
+
+def get_config():
+    try:
+        GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+        logger.info("Using Streamlit secrets")
+    except (FileNotFoundError, KeyError):
+        GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+        logger.info("Using environment variables")
+        
+        if not GROQ_API_KEY:
+            st.error("❌ GROQ_API_KEY not found in secrets or environment variables")
+            st.stop()
+    
+    os.environ["GROQ_API_KEY"] = GROQ_API_KEY
+    return GROQ_API_KEY
+
+GROQ_API_KEY = get_config()
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
