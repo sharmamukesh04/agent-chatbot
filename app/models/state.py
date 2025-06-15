@@ -1,12 +1,13 @@
-from typing import Annotated, Sequence, TypedDict, List, Union
+from typing import Annotated, Sequence, TypedDict, List, Union, Optional
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, ToolMessage
-from langgraph.graph.message import add_messages
 from dataclasses import dataclass
+from langgraph.graph import add_messages
+
 
 class AgentState(TypedDict):
-    """State model for the chatbot agent"""
     messages: Annotated[Sequence[BaseMessage], add_messages]
     user_query: str
+    context_text: Optional[str] 
     is_valid: bool
     iteration_count: int
     global_iteration: int
