@@ -5,7 +5,6 @@ from app.services.chatbot import CashifyChatbotService
 from app.logs.logger import Logger
 import uuid
 
-# Initialize FastAPI app
 app = FastAPI(
     title="Cashify Chatbot API",
     description="AI-powered customer service chatbot for Cashify",
@@ -67,9 +66,15 @@ async def chat_endpoint(request: ChatRequest):
         
         response = chatbot_service.chat(request.message)
         
-        return ChatResponse(
-            response=response
-        )
+        # Safety check - ensure we extract string properly
+        if hasattr(response, 'final_response'):
+            final_text = response.final_response
+            if not isinstance(final_text, str):
+                final_text = str(final_text)
+        else:
+            final_text = str(response)
+        
+        return ChatResponse(response=final_text)
         
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")

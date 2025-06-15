@@ -1,12 +1,10 @@
-# app/services/chatbot.py
-
 from app.core.llm import LLMinitialize
 from app.services.workflow import WorkflowOrchestrator
 from app.logs.logger import Logger
-
-# Import the tools from the tools module
 from app.core.tools import AVAILABLE_TOOLS
-
+from app.models.state import QueryResponses
+from langchain_core.messages import ToolMessage
+import uuid
 
 class CashifyChatbotService:
     def __init__(self):
@@ -36,10 +34,34 @@ class CashifyChatbotService:
             self.logger.error(f"Failed to initialize: {str(e)}")
             raise
     
-    def chat(self, message: str) -> str:
+    def process_query(self, user_input: str) -> QueryResponses:
+        """Process user query and return QueryResponses object"""
         try:
-            response = self.workflow.process_query(message)
-            return response
+            return self.workflow.process_query(user_input)
         except Exception as e:
-            self.logger.error(f"Chat error: {str(e)}")
-            return "Sorry, I encountered an error. Please try again."
+            # Create ToolMessage with proper tool_call_id
+            error_id = str(uuid.uuid4())
+            error_message = ToolMessage(
+                content=f"Error: {str(e)}",
+                tool_call_id=error_id
+            )
+            return QueryResponses(
+                final_response=f"Error processing query: {str(e)}",
+                messages=[error_message]
+            )
+    
+    def chat(self, message: str) -> QueryResponses:
+        """Main chat interface that returns QueryResponses object"""
+        try:
+            return self.process_query(message)
+        except Exception as e:
+            # Create ToolMessage with proper tool_call_id
+            error_id = str(uuid.uuid4())
+            error_message = ToolMessage(
+                content=f"Chat error: {str(e)}",
+                tool_call_id=error_id
+            )
+            return QueryResponses(
+                final_response="Sorry, I encountered an error. Please try again.",
+                messages=[error_message]
+            )
