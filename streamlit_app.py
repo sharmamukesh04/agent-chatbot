@@ -1,12 +1,9 @@
-# ===== FIX: Add this to the top of your streamlit_app.py =====
-
 import sys
 import os
 import asyncio
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-# Fix threading context for Streamlit
 sys.path.insert(0, '/app')
 sys.path.insert(0, '/app/app')
 
@@ -17,11 +14,9 @@ import time
 import traceback
 import logging
 
-# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Import strategies with error handling
 try:
     from app.services.chatbot import CashifyChatbotService
     from app.models.state import QueryResponses
@@ -32,10 +27,8 @@ except ImportError as e:
     QueryResponses = None
     import_strategy = f"Using FastAPI fallback: {e}"
 
-# Page config
 st.set_page_config(page_title="Cashify AI Assistant", page_icon="🤖", layout="wide")
 
-# Initialize session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -48,7 +41,6 @@ if "processing" not in st.session_state:
 if "log_container" not in st.session_state:
     st.session_state.log_container = None
 
-# Fixed chatbot initialization
 if "chatbot" not in st.session_state:
     try:
         if CashifyChatbotService:
@@ -61,7 +53,6 @@ if "chatbot" not in st.session_state:
         st.session_state.chatbot = None
 
 class ThreadSafeLogCapture:
-    """Thread-safe log capture that works with Streamlit"""
     def __init__(self, log_container):
         self.logs = []
         self.log_container = log_container
@@ -71,13 +62,11 @@ class ThreadSafeLogCapture:
         if message.strip():
             with self._lock:
                 self.logs.append(message.strip())
-            # Don't update display from background threads
             
     def flush(self):
         pass
     
     def update_display_safe(self):
-        """Update display from main thread only"""
         try:
             if self.log_container and self.logs:
                 with self.log_container.container():
@@ -102,7 +91,6 @@ class ThreadSafeLogCapture:
             logger.error(f"Display update error: {e}")
 
 def format_message_for_display(message) -> str:
-    """Convert different message types to display format"""
     if isinstance(message, str):
         return message
     
@@ -122,7 +110,6 @@ def format_message_for_display(message) -> str:
     return str(message)
 
 def call_fastapi_endpoint(message: str) -> str:
-    """Fallback: Call FastAPI endpoint"""
     try:
         api_urls = [
             "http://api:8000/chat",
@@ -148,30 +135,49 @@ def call_fastapi_endpoint(message: str) -> str:
         return f"❌ API call error: {str(e)}"
 
 def run_agent_safe(query, log_capture):
-    """Run agent in a thread-safe manner"""
     try:
         if st.session_state.chatbot:
-            # Run chatbot with captured stdout
-            with redirect_stdout(log_capture):
-                response_obj = st.session_state.chatbot.chat(query)
+            log_capture.write(f"👤 HUMAN: {query}")
+            log_capture.write(f"🔄 AI thinking and processing...")
             
-            # Extract response
+            response_obj = st.session_state.chatbot.chat(query)
+            
             if hasattr(response_obj, 'final_response') and hasattr(response_obj, 'messages'):
                 final_response = response_obj.final_response
                 
-                # Log messages safely
+                # Use the messages from QueryResponses which contains all workflow messages
                 for i, message in enumerate(response_obj.messages):
                     try:
-                        formatted_message = format_message_for_display(message)
-                        log_capture.write(f"Step {i+1}: {formatted_message}")
+                        message_type = type(message).__name__
+                        content = getattr(message, 'content', '')
+                        
+                        if 'HumanMessage' in message_type:
+                            log_capture.write(f"👤 HUMAN: {content}")
+                        elif 'AIMessage' in message_type:
+                            if hasattr(message, 'tool_calls') and message.tool_calls:
+                                log_capture.write(f"🤖 AI: {content[:100]}..." if len(content) > 100 else f"🤖 AI: {content}")
+                                for tool_call in message.tool_calls:
+                                    tool_name = tool_call.get('name', 'unknown')
+                                    tool_args = tool_call.get('args', {})
+                                    log_capture.write(f"⚡ CALLING TOOL: {tool_name} with args: {tool_args}")
+                            else:
+                                log_capture.write(f"🤖 AI: {content[:100]}..." if len(content) > 100 else f"🤖 AI: {content}")
+                        elif 'ToolMessage' in message_type:
+                            if content.startswith("Tool:"):
+                                log_capture.write(f"🔧 {content}")
+                            else:
+                                log_capture.write(f"🔧 TOOL RESULT: {content[:100]}..." if len(content) > 100 else f"🔧 TOOL RESULT: {content}")
+                        else:
+                            log_capture.write(f"📋 {message_type}: {content[:100]}..." if len(content) > 100 else f"📋 {message_type}: {content}")
+                            
                     except Exception as e:
-                        log_capture.write(f"Step {i+1}: Error: {str(e)}")
+                        log_capture.write(f"❌ Error processing message {i}: {str(e)}")
                 
+                log_capture.write(f"✅ FINAL: {final_response[:100]}..." if len(final_response) > 100 else f"✅ FINAL: {final_response}")
                 return final_response if final_response else "I couldn't generate a response."
             else:
                 return str(response_obj)
         else:
-            # Use FastAPI fallback
             return call_fastapi_endpoint(query)
             
     except Exception as e:
@@ -180,19 +186,15 @@ def run_agent_safe(query, log_capture):
         return f"Error: {str(e)}"
 
 def run_agent_with_realtime_logs(query, log_container):
-    """Main function to run agent with real-time logs"""
     log_capture = ThreadSafeLogCapture(log_container)
     
     try:
         log_capture.write(f"🔍 Processing: {query}")
         
-        # Run agent in current thread (avoid threading issues)
         response = run_agent_safe(query, log_capture)
         
-        # Update logs in session state
         st.session_state.agent_logs = log_capture.logs
         
-        # Update display safely
         log_capture.update_display_safe()
         
         return response
@@ -203,26 +205,39 @@ def run_agent_with_realtime_logs(query, log_container):
         st.session_state.agent_logs = log_capture.logs
         return f"Error: {str(e)}"
 
-# Header
 st.title("🤖 Cashify AI Assistant")
 st.caption("Real LLM Agent with Decision Tracking")
 
-# Sidebar
 with st.sidebar:
     st.header("🤖 Agent Decision Steps")
     
-    # Debug info
     with st.expander("🔧 Debug Info"):
         st.write(f"Import: {import_strategy}")
         st.write(f"Chatbot: {st.session_state.chatbot is not None}")
     
-    # Log container
+    # ADD: Chat History Section
+    with st.expander("📜 Chat History (Last 5)"):
+        if st.session_state.chatbot:
+            try:
+                history = st.session_state.chatbot.get_chat_history()
+                if history:
+                    for i, chat in enumerate(history):
+                        st.text(f"💬 Chat {i+1}: {chat['user'][:30]}...")
+                        st.caption(f"🤖 {chat['bot'][:50]}...")
+                        st.caption(f"🕒 {chat['timestamp'][:19]}")
+                        st.divider()
+                else:
+                    st.info("No chat history yet")
+            except Exception as e:
+                st.error(f"History error: {e}")
+    
+    # FIX: Keep log container for display
     log_placeholder = st.empty()
     st.session_state.log_container = log_placeholder
     
-    # Show logs
-    if st.session_state.agent_logs:
-        with log_placeholder.container():
+    # FIX: Always update logs display
+    with log_placeholder.container():
+        if st.session_state.agent_logs:
             for log in st.session_state.agent_logs[-15:]:
                 log = str(log).strip()
                 if not log:
@@ -235,8 +250,7 @@ with st.sidebar:
                     st.error(f"⚠️ {log}")
                 else:
                     st.text(log)
-    else:
-        with log_placeholder.container():
+        else:
             st.info("Logs will appear here...")
     
     st.markdown("---")
@@ -244,33 +258,41 @@ with st.sidebar:
     st.metric("Messages", len(st.session_state.messages))
     st.metric("Logs", len(st.session_state.agent_logs))
     
-    if st.button("🔄 Clear", use_container_width=True):
-        st.session_state.messages = []
-        st.session_state.agent_logs = []
-        st.session_state.processing = False
-        st.rerun()
+    # ADD: Exit and Clear buttons
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("🔄 Clear", use_container_width=True):
+            st.session_state.messages = []
+            st.session_state.agent_logs = []
+            st.session_state.processing = False
+            st.rerun()
+    
+    with col2:
+        if st.button("🚪 Exit", use_container_width=True, type="primary"):
+            if st.session_state.chatbot:
+                st.session_state.chatbot.clear_chat_history()
+            st.session_state.messages = []
+            st.session_state.agent_logs = []
+            st.session_state.processing = False
+            st.success("✅ Chat history cleared!")
+            st.rerun()
 
-# Chat history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Chat input
 if prompt := st.chat_input("Ask me anything about Cashify..."):
     if not st.session_state.processing:
         st.session_state.processing = True
         
-        # Clear logs
         st.session_state.agent_logs = []
         
-        # Add user message
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        # Show user message
         with st.chat_message("user"):
             st.markdown(prompt)
         
-        # Process and show response
         with st.chat_message("assistant"):
             with st.spinner("Processing..."):
                 response = run_agent_with_realtime_logs(prompt, st.session_state.log_container)
