@@ -1,6 +1,13 @@
 import json
 import os
 from langchain_core.tools import tool
+from langchain_core.messages import SystemMessage, HumanMessage
+from .llm import LLMinitialize
+
+# REMOVE the monkey-patch (causing the error)
+# Just use DuckDuckGo directly without header modification
+
+llm = LLMinitialize().get_groq_llm()
 
 @tool
 def about_cashify() -> str:
@@ -15,22 +22,51 @@ def about_cashify() -> str:
             filepath = os.path.join(data_dir, "company_info.json")
             with open(filepath, 'r', encoding='utf-8') as f:
                 company_data = json.load(f)
-            return json.dumps(company_data, indent=2)
+                return json.dumps(company_data, indent=2)
         except Exception as e:
             return f"Error reading company info: {str(e)}"
 
-@tool 
+def clean_query(text):
+    """Remove thinking tags and get clean search query"""
+    if '<think>' in text:
+        text = text.split('</think>')[-1] if '</think>' in text else text.split('<think>')[0]
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    return lines[-1] if lines else text.strip()
+
+@tool
 def get_real_time_search(user_query: str) -> str:
     """Real-time search engine for any query"""
-    data_dir = "/app/data"
     try:
-        filepath = os.path.join(data_dir, "search_results.json")
-        with open(filepath, 'r', encoding='utf-8') as f:
-            search_data = json.load(f)
-        return f"Search results for '{user_query}':\n" + json.dumps(search_data, indent=2)
-    except Exception as e:
-        return f"Error performing search: {str(e)}"
+        from langchain_community.tools import DuckDuckGoSearchRun
+        
+        query_generator_prompt = SystemMessage(content="""Convert to search terms. Return ONLY 2-4 words.
 
+Examples:
+"What's the price of iPhone 15?" → iPhone 15 price
+"top 5 smartphones 2024" → best smartphones 2024
+"weather in Delhi" → Delhi weather today
+
+Return ONLY the search words:""")
+        
+        query_messages = [query_generator_prompt, HumanMessage(content=f"User question: {user_query}")]
+        query_response = llm.invoke(query_messages)
+        
+        # Clean the response
+        search_query = clean_query(query_response.content.strip())
+        print(f"🔍 Generated search query: {search_query}")
+        
+        # Use DuckDuckGo search directly
+        search = DuckDuckGoSearchRun()
+        search_results = search.run(search_query)
+        
+        return f"Search Query: {search_query}\n\nResults: {search_results}"
+        
+    except Exception as e:
+        print(f"❌ Search failed: {e}")
+        # Fallback to simple response
+        return f"Search temporarily unavailable for: {user_query}"
+    
+    
 @tool
 def get_trending_product() -> str:
     """Get trending products"""
