@@ -1,8 +1,11 @@
-from typing import List, Any
+# app/services/chatbot.py
+
 from app.core.llm import LLMinitialize
-from app.core.tools import AvailableTools
 from app.services.workflow import WorkflowOrchestrator
 from app.logs.logger import Logger
+
+# Import the tools from the tools module
+from app.core.tools import AVAILABLE_TOOLS
 
 
 class CashifyChatbotService:
@@ -15,25 +18,18 @@ class CashifyChatbotService:
             # Initialize LLM
             llm_init = LLMinitialize()
             self.llm = llm_init.get_groq_llm()
-           
-            self.tools = AvailableTools().tools
             
-            self.logger.info(f"Available tools are {self.tools}")
+            # Use the imported tools
+            self.tools = AVAILABLE_TOOLS
+            
+            # Bind tools to LLM
             self.llm_with_tools = self.llm.bind_tools(self.tools)
             
             # Initialize workflow
             self.workflow = WorkflowOrchestrator(self.llm, self.llm_with_tools, self.tools)
             
-            # Log successful initialization with proper tool names
-            tool_names = []
-            for tool in self.tools:
-                if hasattr(tool, 'name'):
-                    tool_names.append(tool.name)
-                elif hasattr(tool, '__name__'):
-                    tool_names.append(tool.__name__)
-                else:
-                    tool_names.append(str(type(tool).__name__))
-            
+            # Log successful initialization
+            tool_names = [tool.name for tool in self.tools]
             self.logger.info(f"Chatbot initialized with {len(self.tools)} tools: {tool_names}")
             
         except Exception as e:
