@@ -77,8 +77,9 @@ class WorkflowOrchestrator:
 
     def _model_call(self, state: AgentState) -> AgentState:
         current_iteration = state.get('iteration_count', 0)
+        context_text = state.get('context_text', '')
         
-        system_prompt = SystemMessage(content="""You are a Cashify customer service chatbot. Respond in the user's language (English/Hindi).
+        system_prompt = SystemMessage(content=f"""You are a Cashify customer service chatbot.{context_text}
 
     ABSOLUTE RESTRICTIONS:
     - ONLY answer Cashify, gadgets, smartphones, laptops queries
@@ -86,12 +87,14 @@ class WorkflowOrchestrator:
     - For ANY restricted topic, respond EXACTLY: "I am a Cashify Chatbot and I can help you on query related to gadgets or queries related to cashify only"
 
     AVAILABLE TOOLS:
-    - get_order_tracking: Order status
+    - get_order_tracking: Order status (USE THIS FOR ORDER QUESTIONS)
     - get_personal_profile: Profile/coins  
     - get_last_purchases: Purchase history
     - get_trending_product: Products
     - about_cashify: Company info
-    - get_real_time_search: Gadget searches""")
+    - get_real_time_search: Gadget searches
+
+    IMPORTANT: For order status questions, you MUST call get_order_tracking tool.""")
         
         messages_to_send = [system_prompt] + state['messages']
         
@@ -99,23 +102,14 @@ class WorkflowOrchestrator:
             response = self.llm_with_tools.invoke(messages_to_send)
             
             if not hasattr(response, 'content') or not response.content:
-                response.content = "I am a Cashify Chatbot and I can help you on query related to gadgets or queries related to cashify only"
+                response.content = "Let me help you with your Cashify query."
             
-            response_lower = response.content.lower()
-            restricted_phrases = [
-                'sorry to hear', 'mental health', 'helpline', 'crisis', 'professional',
-                'therapy', 'counseling', 'suicide prevention', 'reach out', 'trusted person',
-                'मानसिक स्वास्थ्य', 'सलाह', 'परेशान', 'दुखी'
-            ]
+            self.logger.info(f"Model response - Content: '{response.content[:50]}...', Tool calls: {bool(getattr(response, 'tool_calls', None))}")
             
-            if any(phrase in response_lower for phrase in restricted_phrases):
-                response.content = "I am a Cashify Chatbot and I can help you on query related to gadgets or queries related to cashify only"
-            
-            self.logger.info(f"Model response: {response.content[:50]}...")
-            
+            # APPEND to existing messages instead of replacing
             return {
                 **state,
-                "messages": [response],
+                "messages": state['messages'] + [response],
                 "iteration_count": current_iteration + 1
             }
             
@@ -123,7 +117,7 @@ class WorkflowOrchestrator:
             self.logger.error(f"Model call error: {e}")
             return {
                 **state,
-                "messages": [AIMessage(content="I am a Cashify Chatbot and I can help you on query related to gadgets or queries related to cashify only")],
+                "messages": state['messages'] + [AIMessage(content="Let me help you with your Cashify query.")],
                 "iteration_count": current_iteration + 1
             }
 
@@ -139,8 +133,6 @@ class WorkflowOrchestrator:
         return content.strip() if content.strip() else "I'll help you with that information."
 
     def _check_answer_quality(self, state: AgentState) -> AgentState:
-        """Check if the answer satisfies the user query"""
-        
         user_query = state["user_query"]
         last_message = state['messages'][-1]
         answer = getattr(last_message, 'content', '')
@@ -152,45 +144,25 @@ class WorkflowOrchestrator:
         
         self.logger.info(f"Answer quality check - Tool results found: {len(tool_results)}, Answer length: {len(answer)}")
         
-        if tool_results and answer and len(answer.strip()) > 20:
-            # Check if the answer actually uses the tool results
-            if any(keyword in answer.lower() for keyword in ['order', 'status', 'tracking', 'delivery']):
-                self.logger.info("Answer quality: SATISFIED (has tool results and relevant content)")
-                return {**state, "answer_satisfied": True}
+        if answer and any(keyword in answer.lower() for keyword in ['order', 'ord', 'samsung', 'iphone', 'tracking', 'delivery', 'cashify']):
+            self.logger.info("Answer quality: SATISFIED (contains order/product information)")
+            return {**state, "answer_satisfied": True}
         
         if tool_results:
             self.logger.info("Answer quality: SATISFIED (tool results available)")
             return {**state, "answer_satisfied": True}
         
-        # If no tool results and it's an order query, not satisfied
-        if "order" in user_query.lower() and not tool_results:
+        if answer and len(answer.strip()) > 50:
+            self.logger.info("Answer quality: SATISFIED (substantial response)")
+            return {**state, "answer_satisfied": True}
+        
+        if "order" in user_query.lower() and not tool_results and len(answer.strip()) < 50:
             self.logger.info("Answer quality: NOT SATISFIED (order query without tool results)")
             return {**state, "answer_satisfied": False}
         
-        # For other cases, use LLM to check
-        check_prompt = SystemMessage(content="""Check if this answer properly addresses the user's question.
-
-Respond with ONLY:
-- "SATISFIED" if answer addresses the question reasonably well
-- "UNSATISFIED" if answer is clearly inadequate""")
-        
-        try:
-            check_messages = [
-                check_prompt,
-                HumanMessage(content=f"Question: {user_query}\nAnswer: {answer}")
-            ]
-            check_response = self.llm.invoke(check_messages)
-            
-            is_satisfied = "SATISFIED" in check_response.content.upper()
-            result = "SATISFIED" if is_satisfied else "UNSATISFIED"
-            self.logger.info(f"Answer quality check result: {result}")
-            
-            return {**state, "answer_satisfied": is_satisfied}
-            
-        except Exception as e:
-            # Default to satisfied if check fails
-            self.logger.warning(f"Answer quality check failed: {e}")
-            return {**state, "answer_satisfied": True}
+        self.logger.info("Answer quality: SATISFIED (default)")
+        return {**state, "answer_satisfied": True}
+    
 
     def _handle_invalid_query(self, state: AgentState) -> AgentState:
         """Handle invalid queries"""
@@ -288,6 +260,73 @@ Respond with ONLY:
         
         return graph.compile()
     
+    def process_query_with_context(self, user_input: str, context_text: str = "") -> QueryResponses:
+        state = {
+            "messages": [HumanMessage(content=user_input)],
+            "user_query": user_input,
+            "context_text": context_text,
+            "is_valid": False,
+            "iteration_count": 0,
+            "global_iteration": 0,
+            "answer_satisfied": False
+        }
+        
+        try:
+            logger_messages = [HumanMessage(content=user_input)]
+            result = self.workflow.invoke(state)
+            
+            final_response = "I couldn't process your request."
+            
+            if result and result.get('messages'):
+                for message in result['messages']:
+                    if hasattr(message, 'content') and message.content:
+                        logger_messages.append(message)
+                    
+                    if hasattr(message, 'tool_calls') and message.tool_calls:
+                        for tool_call in message.tool_calls:
+                            tool_name = tool_call.get('name', 'unknown')
+                            tool_args = tool_call.get('args', {})
+                            tool_call_id = tool_call.get('id', str(uuid.uuid4()))
+                            tool_msg = ToolMessage(
+                                content=f"Tool: {tool_name}, Args: {tool_args}",
+                                tool_call_id=tool_call_id
+                            )
+                            logger_messages.append(tool_msg)
+                    
+                    if isinstance(message, ToolMessage):
+                        logger_messages.append(message)
+                
+                if result['messages']:
+                    last_msg = result['messages'][-1]
+                    if hasattr(last_msg, 'content') and last_msg.content:
+                        final_response = last_msg.content
+                    else:
+                        for msg in reversed(result['messages']):
+                            if isinstance(msg, ToolMessage) and msg.content:
+                                final_response = f"Here's the information:\n\n{msg.content}"
+                                break
+            else:
+                error_id = str(uuid.uuid4())
+                logger_messages.append(ToolMessage(
+                    content="No workflow result",
+                    tool_call_id=error_id
+                ))
+            
+            if not final_response or final_response == "None":
+                final_response = "I couldn't retrieve the information. Please try again."
+            
+            return QueryResponses(
+                final_response=final_response,
+                messages=logger_messages
+            )
+            
+        except Exception as e:
+            error_response = f"Error: {str(e)}"
+            return QueryResponses(
+                final_response=error_response,
+                messages=[ToolMessage(content=error_response, tool_call_id=str(uuid.uuid4()))]
+            )
+    
     def process_query(self, user_input: str) -> QueryResponses:
         """Process user query and return QueryResponses object"""
         state = {
@@ -300,29 +339,9 @@ Respond with ONLY:
         }
         
         try:
-            logger_messages = [HumanMessage(content=user_input)]
             result = self.workflow.invoke(state)
             
             if result and result.get('messages'):
-                for message in result['messages']:
-                    if hasattr(message, 'content') and message.content:
-                        logger_messages.append(message)
-                    
-                    if hasattr(message, 'tool_calls') and message.tool_calls:
-                        for tool_call in message.tool_calls:
-                            tool_name = tool_call.get('name', 'unknown')
-                            tool_args = tool_call.get('args', {})
-                            # Create ToolMessage with proper tool_call_id
-                            tool_call_id = tool_call.get('id', str(uuid.uuid4()))
-                            tool_msg = ToolMessage(
-                                content=f"Tool: {tool_name}, Args: {tool_args}",
-                                tool_call_id=tool_call_id
-                            )
-                            logger_messages.append(tool_msg)
-                    
-                    if isinstance(message, ToolMessage):
-                        logger_messages.append(message)
-                
                 final_msg = result['messages'][-1]
                 final_response = getattr(final_msg, 'content', '')
                 
@@ -333,27 +352,20 @@ Respond with ONLY:
                             break
                     if not final_response:
                         final_response = "I couldn't retrieve the information. Please try again."
+                
+                # Return ALL workflow messages without modification
+                return QueryResponses(
+                    final_response=final_response,
+                    messages=result['messages']
+                )
             else:
-                final_response = "I encountered an issue processing your request."
-                # Create ToolMessage with proper tool_call_id
-                error_id = str(uuid.uuid4())
-                logger_messages.append(ToolMessage(
-                    content="No workflow result",
-                    tool_call_id=error_id
-                ))
-            
-            return QueryResponses(
-                final_response=final_response,
-                messages=logger_messages
-            )
+                return QueryResponses(
+                    final_response="I encountered an issue processing your request.",
+                    messages=[HumanMessage(content=user_input)]
+                )
             
         except Exception as e:
-            # Create ToolMessage with proper tool_call_id
-            error_id = str(uuid.uuid4())
             return QueryResponses(
                 final_response=f"Error processing query: {str(e)}",
-                messages=[ToolMessage(
-                    content=f"Error: {str(e)}",
-                    tool_call_id=error_id
-                )]
+                messages=[HumanMessage(content=user_input)]
             )
