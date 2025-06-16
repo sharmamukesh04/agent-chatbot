@@ -11,7 +11,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,7 +19,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize services
 logger = Logger().get_logger()
 chatbot_service = None
 
