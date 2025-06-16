@@ -18,8 +18,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-
-
 try:
     from app.services.chatbot import CashifyChatbotService
     from app.models.state import QueryResponses
