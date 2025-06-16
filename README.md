@@ -22,7 +22,14 @@ An intelligent customer service chatbot for Cashify's smartphone marketplace. Bu
 
 **Tech Stack**: Python • FastAPI • Streamlit • LangGraph • Groq API • Docker
 
-## 🚀 Quick Start
+## 🚀 Quick Start with Streamlit
+![Streamlit App](streamlit-app-image.png)
+
+### 🌐 Live Demo
+**[Try it now →](https://agent-chatbot-demo.streamlit.app)**
+
+### 📱 Demo Link
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://agent-chatbot-demo.streamlit.app)
 
 ### Prerequisites
 - Docker & Docker Compose
