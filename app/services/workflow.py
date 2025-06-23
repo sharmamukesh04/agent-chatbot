@@ -353,7 +353,6 @@ class WorkflowOrchestrator:
                     if not final_response:
                         final_response = "I couldn't retrieve the information. Please try again."
                 
-                # Return ALL workflow messages without modification
                 return QueryResponses(
                     final_response=final_response,
                     messages=result['messages']
