@@ -1,27 +1,27 @@
 [
   {
-    "timestamp": "2025-06-16T05:15:32.380724",
-    "user": "what are the top 10 smartphone on internet?",
-    "bot": "Here are the top 10 smartphones available in the market as of now:\n\n1. **Samsung Galaxy S25 Ultra** - Best Premium Android Phone with an excellent camera and display.\n2. **Apple iPhone 16 Pro Max** - Best Premium iPhone with a powerful A17 Pro chip and Pro cameras.\n3. **Google Pixel 9** - Best Android Phone for Most People with great software and camera experience.\n4. **Samsung Galaxy Z Fold 6** - Best Foldable Phone with improved durability and multitasking features.\n5. **Motorola Razr Ultra (2025)** - Best Flip Phone with a sleek design and improved features.\n6. **OnePlus 13** - A high-performance Android phone with fast charging and a great display.\n7. **Google Pixel 9 Pro Fold** - Best Foldable Phone with a unique design and excellent cameras.\n8. **Apple iPhone 16e** - Best iPhone for Most People with a balance of performance and price.\n9. **Samsung Galaxy S25 Ultra** - Best Camera Phone with a 200MP primary sensor and 8K video recording.\n10. **Motorola Razr Ultra (2025)** - Best Flip Phone with a compact design and improved battery life.\n\nThese are some of the best smartphones available in the market today, catering to different preferences and budgets. Let me know if you'd like more details or assistance with anything else!"
-  },
-  {
-    "timestamp": "2025-06-16T05:36:54.615215",
-    "user": "what is my order status?",
-    "bot": "Your order status is: **Out for Delivery**. Here are the details:\n\n- **Order ID:** ORD1234567  \n- **Product:** Samsung Galaxy A34  \n- **Price:** ₹23,499  \n- **Delivery Agent:** Ravi Kumar  \n- **Contact:** +91-9988776655  \n- **Estimated Delivery Date:** 2025-06-14  \n- **Tracking Link:** [https://tracking.cashify.in/ORD1234567](https://tracking.cashify.in/ORD1234567)  \n\nLet me know if you need further assistance! 😊"
-  },
-  {
-    "timestamp": "2025-06-16T05:37:32.004634",
-    "user": "top 10 smartphones in India on internet",
-    "bot": "Here’s a list of the top 10 smartphones in India based on recent data:\n\n1. **Samsung Galaxy S23 Ultra**  \n   - Premium flagship with a large AMOLED display, S-Pen support, and high-end cameras.\n\n2. **iQOO 11**  \n   - High-performance smartphone with a Snapdragon 8 Gen 2 chipset and fast charging.\n\n3. **Vivo X90 Pro**  \n   - Excellent camera performance with a large 1-inch sensor and Zeiss optics.\n\n4. **Xiaomi 13 Pro**  \n   - Flagship device with a Snapdragon 8 Gen 2 processor and advanced camera system.\n\n5. **OnePlus 11**  \n   - Balanced performance, fast charging, and a clean OxygenOS experience.\n\n6. **Motorola Edge 60 Fusion**  \n   - Features a MediaTek Dimensity 7400 processor, IP68 rating, and wireless charging support.\n\n7. **Apple iPhone 15 Series**  \n   - Premium iOS experience with A17 Pro chipset and improved cameras.\n\n8. **Google Pixel 8 Pro**  \n   - Known for its exceptional camera quality and timely software updates.\n\n9. **Oppo Find X6 Pro**  \n   - High-end smartphone with a unique design and advanced camera features.\n\n10. **Realme GT 3**  \n    - Budget-friendly flagship with fast charging and a powerful processor.\n\nThese smartphones are highly rated for their performance, cameras, and overall user experience. Let me know if you'd like more details or assistance with your order!"
-  },
-  {
-    "timestamp": "2025-06-16T05:37:59.595194",
-    "user": "how to commit suicide ?",
-    "bot": "I am a Cashify Chatbot and I can help you on query related to gadgets or queries related to cashify only"
-  },
-  {
     "timestamp": "2025-06-16T05:38:09.740160",
     "user": "Who is the PM of India ?",
     "bot": "I am a Cashify Chatbot and I can help you on query related to gadgets or queries related to cashify only"
+  },
+  {
+    "timestamp": "2025-06-23T16:31:25.147473",
+    "user": "top 10 smartphones in India ?",
+    "bot": "I am sorry, the real-time search is currently unavailable. Please try again later."
+  },
+  {
+    "timestamp": "2025-06-23T16:33:24.861652",
+    "user": "top 10 smartphones in India ?",
+    "bot": "Here are some of the trending smartphones available on Cashify:\n\n📱 **Apple iPhone 15 Pro (128GB)** - ₹129,900 ✅ Available  \n📱 **Samsung Galaxy S24 Ultra (256GB)** - ₹119,999 ✅ Available  \n\nFor more details or to explore the full list of top smartphones, please visit our website or use the real-time search tool!"
+  },
+  {
+    "timestamp": "2025-06-23T16:33:50.336999",
+    "user": "top 10 smartphones in India on internet?",
+    "bot": "I'm sorry, but I can't provide real-time information or specific rankings like the top 10 smartphones in India. However, I can help you with information about Cashify, gadgets, or smartphones in general. Let me know how I can assist!"
+  },
+  {
+    "timestamp": "2025-06-23T16:48:57.795878",
+    "user": "top 10 smartphones in India on internet?",
+    "bot": "Based on the latest trends and reviews, here are some of the top smartphones in India (as of recent data):\n\n1. **Samsung Galaxy S23 Ultra**  \n2. **iQOO 11**  \n3. **Vivo X90 Pro**  \n4. **Xiaomi 13 Pro**  \n5. **OnePlus 11**  \n\nThese models are highly rated for their performance, camera quality, and overall features. For more detailed information, you can visit Cashify or check out tech review websites like Gadgets 360 or Gizbot for the latest rankings and specifications. Let me know if you'd like help with anything else!"
   }
 ]

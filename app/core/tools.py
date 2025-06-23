@@ -4,8 +4,28 @@ from pathlib import Path
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage
 from .llm import LLMinitialize
+import time
+import random
 
 llm = LLMinitialize().get_groq_llm()
+
+class SimpleRateLimiter:
+    def __init__(self):
+        self.last_request_time = 0
+        self.min_delay = 3.0
+    
+    def wait_if_needed(self):
+        current_time = time.time()
+        time_since_last = current_time - self.last_request_time
+        
+        if time_since_last < self.min_delay:
+            sleep_time = self.min_delay - time_since_last + random.uniform(0.5, 1.5)
+            time.sleep(sleep_time)
+        
+        self.last_request_time = time.time()
+
+rate_limiter = SimpleRateLimiter()
+
 
 def get_data_dir():
     for path in ["data", "./data", os.path.join(os.getcwd(), "data")]:
@@ -55,15 +75,32 @@ def get_real_time_search(user_query: str) -> str:
     """Real-time search engine for any query"""
     try:
         from langchain_community.tools import DuckDuckGoSearchRun
+        from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
+        
         query_generator_prompt = SystemMessage(content="Convert to search terms. Return ONLY 2-4 words.")
         query_messages = [query_generator_prompt, HumanMessage(content=f"User question: {user_query}")]
         query_response = llm.invoke(query_messages)
         search_query = clean_query(query_response.content.strip())
-        search = DuckDuckGoSearchRun()
+        
+        # Apply rate limiting
+        rate_limiter.wait_if_needed()
+        
+        # Configure DuckDuckGo with safer settings
+        wrapper = DuckDuckGoSearchAPIWrapper(
+            region="us-en",
+            safesearch="moderate",
+            time="y",
+            max_results=3,
+            backend="auto"
+        )
+        
+        search = DuckDuckGoSearchRun(api_wrapper=wrapper)
         search_results = search.run(search_query)
+        
         return f"Search Query: {search_query}\n\nResults: {search_results}"
+        
     except Exception as e:
-        return f"Search temporarily unavailable for: {user_query}"
+        return f"Search error: {str(e)}"
 
 @tool
 def get_trending_product() -> str:
